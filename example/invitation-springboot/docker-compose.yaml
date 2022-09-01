@@ -1,0 +1,73 @@
+---
+version: "3.9"
+x-cue-version: v_hard-hats
+
+x-cue-includes: # does cue already support this???
+  - git@github.com/docker-cue/config/acme-clouds.git?ref=main|/foo.yml
+  - ./bar.yaml
+
+x-cue-clouds:
+  aws-east:
+    src: git@github.com/docker-cue/config/acme-clouds.git?ref=main
+    id: acme-docker-cue # unique per kind. used as a "Name" tag prefix for resources.
+    kind: aws # azure, aws-gov, gcp, &c - similar to 'partition' in ARNs
+    region: us-east-1
+    account: 123456789012
+    networks:
+      default: # 'default' key used if no network specified by resource
+        cidr: 172.31.0.0/16 # this is the default. cidr is optional.
+      invitation:
+        subnets: [] # ventually include options for subnets &c
+    logs:
+      default:
+        id: # must be unique per cloud (or region). if not provided use "${cloud.id}-"
+        retention: 30d
+
+x-cue-resources:
+  db:
+    # id: must be unique per cloud. if not provided, use "${cloud.id}-${resource_key_name}" e.g. 'aws-east-db'.
+    cloud: aws-east
+    kind: rds-cluster # for aurora, for regular RDS use aws-rds-db
+    lifecycle: essential #  use 'ephemeral' to cycle with compose up|down
+    network: invitation # if not specified
+    attr:
+      db_type: postgresql
+      db_version: "11.10"
+      db_name: foo
+      db_user: "${DB_USER:-foo}"
+      db_pass: "${DB_PASS:-far}"
+
+
+services:
+  app:
+    image: wedding-invitation:latest  # build an updated image using `mvn jib:dockerBuild`
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db-local:5432/invitation
+      SPRING_DATASOURCE_USERNAME: foo
+      SPRING_DATASOURCE_PASSWORD: foo
+      SPRING_PROFILES_ACTIVE: local
+    x-cue-links:
+      - resource: db
+        environment: # these are set only if 'db' is accessible
+          SPRING_DATASOURCE_URL: jdbc:postgresql://\(resource.endpoint)/foo
+          SPRING_DATASOURCE_USERNAME: \(resource.db_user)
+          SPRING_DATASOURCE_PASSWORD: \(resource.db_user)
+          SPRING_PROFILES_ACTIVE: aws
+
+    ports:
+      - 8080
+
+  db-local:
+    x-cue-skip-condition: cloud(aws-east) # skips this service during up|down if condition is met -- need a strategy to allow local if not connected to cloud
+    image: postgres:11.10
+    environment:
+      POSTGRES_DB: invitation
+      POSTGRES_USER: foo
+      POSTGRES_PASSWORD: foo
+    ports:
+      - 5432
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

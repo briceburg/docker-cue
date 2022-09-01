@@ -1,0 +1,56 @@
+//
+// KEEP in sync with pom.xml and demonstrate both maven and gradle projects
+//
+
+plugins {
+  id 'groovy-gradle-plugin'
+  id 'maven-publish'
+
+  id 'com.diffplug.spotless' version '6.2.0'  // https://github.com/diffplug/spotless
+  id 'com.jfrog.artifactory' version '4.27.0' // https://www.jfrog.com/confluence/display/rtf/gradle+artifactory+plugin
+}
+group = 'net.iceburg.conventions'
+version = '1.0.7'
+sourceCompatibility = JavaVersion.VERSION_11
+targetCompatibility = JavaVersion.VERSION_11
+
+repositories {
+  gradlePluginPortal()
+}
+
+// @ TODO attempt openapi generator v5+
+dependencies {
+  // 3rd party plugins
+  implementation 'com.avast.gradle:gradle-docker-compose-plugin:0.15.0' // https://github.com/avast/gradle-docker-compose-plugin
+  implementation 'com.diffplug.spotless:spotless-plugin-gradle:6.2.0' // https://github.com/diffplug/spotless/tree/master/plugin-gradle
+  implementation 'com.google.cloud.tools.jib:com.google.cloud.tools.jib.gradle.plugin:3.2.0' // https://plugins.gradle.org/plugin/com.google.cloud.tools.jib
+  implementation 'io.freefair.gradle:lombok-plugin:6.4.0' // https://plugins.gradle.org/plugin/io.freefair.lombok
+  implementation 'org.jfrog.buildinfo:build-info-extractor-gradle:4.27.0' // https://www.jfrog.com/confluence/display/rtf/gradle+artifactory+plugin
+  implementation 'org.openapi.generator:org.openapi.generator.gradle.plugin:5.4.0' // https://github.com/OpenAPITools/openapi-generator/tree/master/modules/openapi-generator-gradle-plugin
+  implementation 'org.springframework.boot:spring-boot-gradle-plugin:2.6.3' // https://plugins.gradle.org/plugin/org.springframework.boot
+
+  // for testing our plugins
+  testImplementation platform("org.spockframework:spock-bom:2.0-groovy-3.0")
+  testImplementation 'org.spockframework:spock-core'
+}
+
+tasks.named('test') {
+  useJUnitPlatform()
+}
+
+spotless {
+  groovy {
+    target '**/*.groovy', '**/*.Jenkinsfile'
+    greclipse()
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+  groovyGradle {
+    target '**/*.gradle'
+    greclipse()
+    trimTrailingWhitespace()
+    indentWithSpaces(2)
+    endWithNewline()
+  }
+}
